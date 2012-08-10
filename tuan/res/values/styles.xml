@@ -1,0 +1,13 @@
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <style name="AppTheme" parent="Theme.Sherlock" >
+        <item name="actionBarStyle">@style/Widget.Styled.ActionBar</item>
+    </style>
+
+    <style name="Widget.Styled.ActionBar" parent="Widget.Sherlock.ActionBar">
+        <item name="background">@color/bg</item>
+         <item name="backgroundSplit">@color/bg_split</item>
+         <item name="homeLayout">@layout/abs__action_bar_home</item>
+    </style>
+    
+</resources>
