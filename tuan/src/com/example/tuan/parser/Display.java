@@ -9,6 +9,7 @@ public class Display {
 	String rebate;
 	String bought;
 	String addr;
+	String gid;
 	public String getWap_url() {
 		return wap_url;
 	}
@@ -51,13 +52,22 @@ public class Display {
 	public void setAddr(String addr) {
 		this.addr = addr;
 	}
+	
+	
+	public String getGid() {
+		return gid;
+	}
+	public void setGid(String gid) {
+		this.gid = gid;
+	}
 	@Override
 	public String toString() {
 		return "Display [wap_url=" + wap_url + ", title=" + title
 				+ ", small_image_url=" + small_image_url + ", price=" + price
 				+ ", rebate=" + rebate + ", bought=" + bought + ", addr="
-				+ addr + "]";
+				+ addr + ", gid=" + gid + "]";
 	}
+	
 	
 	
 	

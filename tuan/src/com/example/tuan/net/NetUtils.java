@@ -20,11 +20,12 @@ import android.util.Log;
 public class NetUtils {
 
 //	public static String SAMPLE_URL = "http://open.client.lashou.com/api/detail/city/1079/p/1/r/10";
-	public static String URL = "http://open.client.lashou.com/api/detail/city/1079/p/{0}/r/{1}";
+	public static String URL = "http://open.client.lashou.com/api/detail";
 
-	public static String downloadData(int start,int size) {
+	public static String downloadData(int city_id,int start,int size) {
 		String result = "";
-		String url = MessageFormat.format(URL, start,size);
+		String url = URL+"/city/"+city_id+"/p/"+start+"/r/"+size;
+		Log.d("url", url);
 		HttpGet get = new HttpGet(url);
 		try {
 			HttpResponse response = new DefaultHttpClient().execute(get);
@@ -78,4 +79,6 @@ public class NetUtils {
 	    }
 	    return null;
 	}
+	
+	
 }

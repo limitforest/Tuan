@@ -48,10 +48,4 @@ public class DisplayActivity extends Activity {
 		return super.onKeyDown(keyCode, event);
 	}
 
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		getMenuInflater().inflate(R.menu.activity_display, menu);
-		return true;
-	}
-
 }

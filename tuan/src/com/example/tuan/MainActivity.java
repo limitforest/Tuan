@@ -1,173 +1,99 @@
 package com.example.tuan;
 
-import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-import android.content.Context;
+import android.content.ContentResolver;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.view.ViewPager;
-import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TabHost;
-import android.widget.TabWidget;
+import android.support.v4.app.FragmentTransaction;
+import android.util.Log;
 
 import com.actionbarsherlock.app.SherlockFragmentActivity;
 import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuInflater;
+import com.actionbarsherlock.view.MenuItem;
 import com.actionbarsherlock.view.SubMenu;
+import com.example.tuan.TodayTuanFragment.MainTable;
 
 public class MainActivity extends SherlockFragmentActivity {
-	 TabHost mTabHost;
-	    ViewPager  mViewPager;
-	    TabsAdapter mTabsAdapter;
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-    	setTheme(R.style.AppTheme);
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        getSupportActionBar().setDisplayShowHomeEnabled(false);
-        
-        
-        mTabHost = (TabHost)findViewById(android.R.id.tabhost);
-        mTabHost.setup();
+	static final String TAG = "MainActivity";
 
-        mViewPager = (ViewPager)findViewById(R.id.pager);
+	static final int CITY_ID = -1;
 
-        mTabsAdapter = new TabsAdapter(this, mTabHost, mViewPager);
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		setTheme(R.style.AppTheme);
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
+		getSupportActionBar().setDisplayShowHomeEnabled(false);
 
-        mTabsAdapter.addTab(mTabHost.newTabSpec("today_tuan").setIndicator(getString(R.string.today_tuan)),
-               TodayTuanFragment.class, null);
-        mTabsAdapter.addTab(mTabHost.newTabSpec("nearby_tuan").setIndicator(getString(R.string.nearby_tuan)),
-                NearbyTuanFragment.class, null);
-        
+		int city_id = setCityId(0);
 
-        if (savedInstanceState != null) {
-            mTabHost.setCurrentTabByTag(savedInstanceState.getString("tab"));
-        }
-    }
+		Fragment newFragment = new TodayTuanFragment();
+		Bundle bundle = new Bundle();
+		bundle.putInt("city_id", city_id);
+		newFragment.setArguments(bundle);
 
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putString("tab", mTabHost.getCurrentTabTag());
-    }
-    
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-    	 SubMenu sub = menu.addSubMenu(getString(R.string.city));
-    	 int counter = 0;
-    	 for(String s:getResources().getStringArray(R.array.cities_array)){
-    		 sub.add(0, counter++, 0, s);	 
-    	 }
-         sub.getItem().setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
-         return true;
-    }
-    
-    /**
-     * This is a helper class that implements the management of tabs and all
-     * details of connecting a ViewPager with associated TabHost.  It relies on a
-     * trick.  Normally a tab host has a simple API for supplying a View or
-     * Intent that each tab will show.  This is not sufficient for switching
-     * between pages.  So instead we make the content part of the tab host
-     * 0dp high (it is not shown) and the TabsAdapter supplies its own dummy
-     * view to show as the tab content.  It listens to changes in tabs, and takes
-     * care of switch to the correct paged in the ViewPager whenever the selected
-     * tab changes.
-     */
-    public static class TabsAdapter extends FragmentPagerAdapter
-            implements TabHost.OnTabChangeListener, ViewPager.OnPageChangeListener {
-        private final Context mContext;
-        private final TabHost mTabHost;
-        private final ViewPager mViewPager;
-        private final ArrayList<TabInfo> mTabs = new ArrayList<TabInfo>();
+		FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+		ft.add(R.id.simple_fragment, newFragment).commit();
+	}
 
-        static final class TabInfo {
-            private final String tag;
-            private final Class<?> clss;
-            private final Bundle args;
+	@Override
+	public void onConfigurationChanged(Configuration newConfig) {
+		super.onConfigurationChanged(newConfig);
+	}
 
-            TabInfo(String _tag, Class<?> _class, Bundle _args) {
-                tag = _tag;
-                clss = _class;
-                args = _args;
-            }
-        }
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		SubMenu sub = menu.addSubMenu(0, CITY_ID, 0, getString(R.string.city));
 
-        static class DummyTabFactory implements TabHost.TabContentFactory {
-            private final Context mContext;
+		String[] city = getResources().getStringArray(R.array.cities_array);
+		String[] city_id = getResources().getStringArray(R.array.cities_array_id);
+		Map<String, String> maps = new LinkedHashMap<String, String>();
+		for (int i = 0; i < city_id.length; i++) {
+			maps.put(city_id[i], city[i]);
+			sub.add(0, i, 0, city[i]);
+		}
+		sub.getItem().setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+		return true;
+	}
 
-            public DummyTabFactory(Context context) {
-                mContext = context;
-            }
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		if (item.getItemId() != CITY_ID) {
+			int index = item.getItemId();
+			Log.d(TAG, "itemID:" + index);
 
-            @Override
-            public View createTabContent(String tag) {
-                View v = new View(mContext);
-                v.setMinimumWidth(0);
-                v.setMinimumHeight(0);
-                return v;
-            }
-        }
+			int city_id = setCityId(index);
 
-        public TabsAdapter(FragmentActivity activity, TabHost tabHost, ViewPager pager) {
-            super(activity.getSupportFragmentManager());
-            mContext = activity;
-            mTabHost = tabHost;
-            mViewPager = pager;
-            mTabHost.setOnTabChangedListener(this);
-            mViewPager.setAdapter(this);
-            mViewPager.setOnPageChangeListener(this);
-        }
+			Fragment newFragment = new TodayTuanFragment();
+			Bundle bundle = new Bundle();
+			bundle.putInt("city_id", city_id);
+			newFragment.setArguments(bundle);
+			
+			FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+			ft.replace(R.id.simple_fragment, newFragment);
+			ft.commit();
 
-        public void addTab(TabHost.TabSpec tabSpec, Class<?> clss, Bundle args) {
-            tabSpec.setContent(new DummyTabFactory(mContext));
-            String tag = tabSpec.getTag();
+		}
 
-            TabInfo info = new TabInfo(tag, clss, args);
-            mTabs.add(info);
-            mTabHost.addTab(tabSpec);
-            notifyDataSetChanged();
-        }
+		return true;
+	}
 
-        @Override
-        public int getCount() {
-            return mTabs.size();
-        }
+	int setCityId(int index) {
+		String[] city = getResources().getStringArray(R.array.cities_array);
+		String[] city_ids = getResources().getStringArray(R.array.cities_array_id);
+		Map<String, String> maps = new LinkedHashMap<String, String>();
+		for (int i = 0; i < city_ids.length; i++) {
+			maps.put(city_ids[i], city[i]);
+		}
 
-        @Override
-        public Fragment getItem(int position) {
-            TabInfo info = mTabs.get(position);
-            return Fragment.instantiate(mContext, info.clss.getName(), info.args);
-        }
+		StringBuilder builder = new StringBuilder(getString(R.string.today_tuan));
+		builder.append("-" + maps.get(city_ids[index]));
+		setTitle(builder);
+		return Integer.parseInt(city_ids[index]);
 
-        @Override
-        public void onTabChanged(String tabId) {
-            int position = mTabHost.getCurrentTab();
-            mViewPager.setCurrentItem(position);
-        }
-
-        @Override
-        public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-        }
-
-        @Override
-        public void onPageSelected(int position) {
-            // Unfortunately when TabHost changes the current tab, it kindly
-            // also takes care of putting focus on it when not in touch mode.
-            // The jerk.
-            // This hack tries to prevent this from pulling focus out of our
-            // ViewPager.
-            TabWidget widget = mTabHost.getTabWidget();
-            int oldFocusability = widget.getDescendantFocusability();
-            widget.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
-            mTabHost.setCurrentTab(position);
-            widget.setDescendantFocusability(oldFocusability);
-        }
-
-        @Override
-        public void onPageScrollStateChanged(int state) {
-        }
-    }
+	}
 }

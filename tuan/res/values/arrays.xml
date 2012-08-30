@@ -7,4 +7,11 @@
         <item >广州</item>
         <item >深圳</item>
     </string-array>
+     <string-array name="cities_array_id">
+        <item >1079</item>
+        <item >2419</item>
+        <item >2421</item>
+        <item >2422</item>
+        <item >372</item>
+    </string-array>
 </resources>
