@@ -6,8 +6,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -21,14 +24,16 @@ import android.widget.ImageView;
 import com.example.tuan.net.NetUtils;
 
 public class ImageDownloader {
-	class ImageLoaderTask extends AsyncTask<String, Void, Bitmap> {
+	class BitmapDownloaderTask extends AsyncTask<String, Void, Bitmap> {
 
 		String small_image_url;
 		WeakReference<ImageView> imageViewRef;
-
-		public ImageLoaderTask(String small_image_url, ImageView imageView) {
+		String fileName;
+		
+		public BitmapDownloaderTask(String small_image_url, ImageView imageView,String fileName) {
 			this.small_image_url = small_image_url;
 			imageViewRef = new WeakReference<ImageView>(imageView);
+			this.fileName = fileName;
 		}
 
 		@Override
@@ -40,65 +45,90 @@ public class ImageDownloader {
 
 		@Override
 		protected void onPostExecute(Bitmap result) {
+			if (isCancelled()) {
+				result = null;
+			}
 
-			imageCache.put(small_image_url, new WeakReference<Bitmap>(result));
+			// hardedImageCache.put(small_image_url, new
+			// WeakReference<Bitmap>(result));
+			addBitmapToCache(small_image_url, result);
 			if (imageViewRef != null) {
 				ImageView imageView = imageViewRef.get();
-				ImageLoaderTask task = findTask(imageView);
+				BitmapDownloaderTask task = getBitmapDownloaderTask(imageView);
 				if (this == task) {
-					storeCacheImage(fileName, result);
+					storeBitmapToStorage(fileName, result);
 					imageView.setImageBitmap(result);
 				}
 			}
 		}
 	}
 
-	class DrawableWithTask extends BitmapDrawable {
+	class DownloadedDrawable extends BitmapDrawable {
 		AsyncTask<String, Void, Bitmap> task;
 
-		public DrawableWithTask(AsyncTask<String, Void, Bitmap> task) {
+		public DownloadedDrawable(AsyncTask<String, Void, Bitmap> task) {
 			this.task = task;
 		}
 	}
 
-	HashMap<String, WeakReference<Bitmap>> imageCache;
-	String fileName;
+	final static int CAPACITY = 10;
 
-	public ImageDownloader(String fileName) {
-		imageCache = new HashMap<String, WeakReference<Bitmap>>();
-		this.fileName = fileName;
+	HashMap<String, Bitmap> hardedImageCache;
+	ConcurrentHashMap<String, SoftReference<Bitmap>> softedImageCache;
+
+	public ImageDownloader() {
+		hardedImageCache = new LinkedHashMap<String, Bitmap>(CAPACITY / 2, 0.75f, true) {
+
+			/**
+			 * 
+			 */
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			protected boolean removeEldestEntry(java.util.Map.Entry<String, Bitmap> eldest) {
+				if (size() > CAPACITY) {
+					softedImageCache.put(eldest.getKey(), new SoftReference<Bitmap>(eldest.getValue()));
+					return true;
+				}
+				return false;
+			}
+
+		};
+		softedImageCache = new ConcurrentHashMap<String, SoftReference<Bitmap>>(CAPACITY / 2);
+
 
 	}
 
-	public void download(String url, ImageView imageView) {
-		Bitmap bitmap = retrieveCacheImage(fileName);
+	public void download(String url, ImageView imageView,String fileName) {
+		Bitmap bitmap = retrieveBitmapFromStorage(fileName);
 		if (bitmap != null) {
 			imageView.setImageBitmap(bitmap);
-			return ;
-		} 
-		
-		bitmap = getImageCacheBitmap(url);
+			return;
+		}
+
+		bitmap = getBitmapFromCache(url);
 		if (bitmap == null) {
-			Log.d("ImageLoader","cache null "+url);
-			forceDownload(url, imageView);
+			Log.d("ImageLoader", "forceDownload " + url);
+			forceDownload(url, imageView,fileName);
 		} else {
-		
-				cancelproteionTask(url, imageView);
-				imageView.setImageBitmap(bitmap);
+			//Log.d("ImageLoader", "cache not null " + url);
+			cancelPotentialDownload(url, imageView);
+			imageView.setImageBitmap(bitmap);
 		}
 	}
 
-	void forceDownload(String url, ImageView imageView) {
-		ImageLoaderTask task = new ImageLoaderTask(url, imageView);
-		DrawableWithTask drawable = new DrawableWithTask(task);
-		imageView.setImageDrawable(drawable);
-		task.execute(url);
+	void forceDownload(String url, ImageView imageView,String fileName) {
+		if (cancelPotentialDownload(url, imageView)) {
+			BitmapDownloaderTask task = new BitmapDownloaderTask(url, imageView,fileName);
+			DownloadedDrawable drawable = new DownloadedDrawable(task);
+			imageView.setImageDrawable(drawable);
+			task.execute(url);
+		}
 	}
 
-	boolean cancelproteionTask(String url, ImageView imageView) {
-		ImageLoaderTask task = findTask(imageView);
+	boolean cancelPotentialDownload(String url, ImageView imageView) {
+		BitmapDownloaderTask task = getBitmapDownloaderTask(imageView);
 		if (task != null) {
-
 			String _url = task.small_image_url;
 			if (_url == null || !_url.equals(url)) {
 				task.cancel(true);
@@ -109,31 +139,54 @@ public class ImageDownloader {
 		return true;
 	}
 
-	ImageLoaderTask findTask(ImageView imageView) {
+	BitmapDownloaderTask getBitmapDownloaderTask(ImageView imageView) {
 		if (imageView != null) {
 			Drawable drawable = imageView.getDrawable();
-			if (drawable != null && drawable instanceof DrawableWithTask) {
-				ImageLoaderTask task = (ImageLoaderTask) ((DrawableWithTask) drawable).task;
+			if (drawable instanceof DownloadedDrawable) {
+				BitmapDownloaderTask task = (BitmapDownloaderTask) ((DownloadedDrawable) drawable).task;
 				return task;
 			}
 		}
 		return null;
 	}
 
-	private Bitmap getImageCacheBitmap(String url) {
-		WeakReference<Bitmap> ref = imageCache.get(url);
-		if (ref == null)
-			return null;
-		else {
-			Bitmap bitmap = ref.get();
-			return bitmap;
+	private void addBitmapToCache(String url, Bitmap bitmap) {
+		if(bitmap!=null)
+		synchronized (hardedImageCache) {
+			hardedImageCache.put(url, bitmap);
+			
 		}
+	
 	}
 
-	Bitmap retrieveCacheImage(String fileName) {
+	private Bitmap getBitmapFromCache(String url) {
+
+		synchronized (hardedImageCache) {
+
+			Bitmap bitmap = hardedImageCache.get(url);
+			if (bitmap != null) {
+				hardedImageCache.remove(url);
+				hardedImageCache.put(url, bitmap);
+				return bitmap;
+			}
+		}
+
+		SoftReference<Bitmap> bitmapRef = softedImageCache.get(url);
+		if (bitmapRef != null) {
+			Bitmap bitmap = bitmapRef.get();
+			if (bitmap != null)
+				return bitmap;
+			else
+				softedImageCache.remove(url);
+		}
+		return null;
+
+	}
+
+	Bitmap retrieveBitmapFromStorage(String fileName) {
 		if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED))
 			return null;
-		
+
 		File externalCacheDir = Environment.getExternalStorageDirectory();
 		File dir = new File(externalCacheDir, "tuan");
 		if (!dir.exists())
@@ -159,10 +212,10 @@ public class ImageDownloader {
 		return null;
 	}
 
-	boolean storeCacheImage(String fileName, Bitmap bitmap) {
+	boolean storeBitmapToStorage(String fileName, Bitmap bitmap) {
 		if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED))
 			return false;
-		
+
 		File externalCacheDir = Environment.getExternalStorageDirectory();
 		if (externalCacheDir == null)
 			return false;

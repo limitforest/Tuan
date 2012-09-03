@@ -15,7 +15,6 @@ public class DisplayActivity extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_display);
-
 		Intent intent = getIntent();
 		if (intent != null) {
 			String url = intent.getExtras().getString("wap_url");

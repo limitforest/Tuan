@@ -31,6 +31,9 @@ import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Handler.Callback;
+import android.os.Message;
 import android.provider.BaseColumns;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.LoaderManager;
@@ -114,7 +117,7 @@ public class TodayTuanFragment extends SherlockListFragment /*
 		 */
 		// public static final String DEFAULT_SORT_ORDER =
 		// "data COLLATE LOCALIZED ASC";
-		public static final String DEFAULT_SORT_ORDER = null;
+		public static final String DEFAULT_SORT_ORDER = "display_id COLLATE LOCALIZED ASC";
 
 		/**
 		 * Column name for the single column holding our data.
@@ -129,6 +132,7 @@ public class TodayTuanFragment extends SherlockListFragment /*
 		public static final String COLUMN_NAME_REBATE = "rebate";
 		public static final String COLUMN_NAME_PRICE = "price";
 		public static final String COLUMN_NAME_BOUGHT = "bought";
+		public static final String COLUMN_NAME_DISPLAY_ID = "display_id";
 
 		// public static final String COLUMN_NAME_GID = "gid";
 	}
@@ -156,10 +160,11 @@ public class TodayTuanFragment extends SherlockListFragment /*
 		@Override
 		public void onCreate(SQLiteDatabase db) {
 			db.execSQL("CREATE TABLE " + MainTable.TABLE_NAME + " (" + MainTable._ID + " INTEGER PRIMARY KEY,"
+					 + MainTable.COLUMN_NAME_DISPLAY_ID + " INTEGER ,"
 					+ MainTable.COLUMN_NAME_WAP_URL + " TEXT," + MainTable.COLUMN_NAME_SMALL_IMAGE_URL + " TEXT,"
 					+ MainTable.COLUMN_NAME_BOUGHT + " TEXT," + MainTable.COLUMN_NAME_PRICE + " TEXT,"
 					+ MainTable.COLUMN_NAME_REBATE + " TEXT,"
-					// + MainTable.COLUMN_NAME_GID + " INTEGER ,"
+					
 					+ MainTable.COLUMN_NAME_DATA + " TEXT" + ");");
 		}
 
@@ -218,6 +223,7 @@ public class TodayTuanFragment extends SherlockListFragment /*
 			mNotesProjectionMap.put(MainTable.COLUMN_NAME_REBATE, MainTable.COLUMN_NAME_REBATE);
 			mNotesProjectionMap.put(MainTable.COLUMN_NAME_BOUGHT, MainTable.COLUMN_NAME_BOUGHT);
 			mNotesProjectionMap.put(MainTable.COLUMN_NAME_DATA, MainTable.COLUMN_NAME_DATA);
+			mNotesProjectionMap.put(MainTable.COLUMN_NAME_DISPLAY_ID, MainTable.COLUMN_NAME_DISPLAY_ID);
 		}
 
 		/**
@@ -404,134 +410,98 @@ public class TodayTuanFragment extends SherlockListFragment /*
 		}
 	}
 
-	public class AppCursorAdapter extends BaseAdapter {
+	class PopulateDataAsyncTask extends AsyncTask<Void, Void, List<Display>> {
+		final ContentResolver cr = getActivity().getContentResolver();
+		boolean first = true;
 
-		Cursor cusor;
+		@Override
+		protected List<Display> doInBackground(Void... params) {
+			Log.d(TAG, "start:" + start);
+			String content = NetUtils.downloadData(city_id, start, Constant.ITEMS);
 
-		public AppCursorAdapter() {
+			XMLParser parser = new XMLParser();
+			List<Display> lists = parser.parseXML(content);
+			// Log.d(TAG, lists.size() + "");
+			for (Display display : lists) {
+				
+				ContentValues values = new ContentValues();
+				values.put(MainTable._ID, Integer.parseInt(display.getGid()));
+				values.put(MainTable.COLUMN_NAME_DATA, display.getTitle());
+				values.put(MainTable.COLUMN_NAME_SMALL_IMAGE_URL, display.getSmall_image_url());
+				values.put(MainTable.COLUMN_NAME_WAP_URL, display.getWap_url());
+				values.put(MainTable.COLUMN_NAME_BOUGHT, display.getBought());
+				values.put(MainTable.COLUMN_NAME_PRICE, display.getPrice());
+				values.put(MainTable.COLUMN_NAME_REBATE, display.getRebate());
+				values.put(MainTable.COLUMN_NAME_DISPLAY_ID, ++cursorCount);
+
+				cr.insert(MainTable.CONTENT_URI, values);
+			}
+
+			if (isCancelled()) {
+				for (Display display : lists) {
+					int row = cr.delete(MainTable.CONTENT_URI, MainTable._ID + "=?",
+							new String[] { "" + Integer.parseInt(display.getGid()) });
+					Log.d(TAG, "delte display in row " + row);
+				}
+
+			}
+			if (lists.size() > 0)
+				start++;
+			return lists;
 		}
 
 		@Override
-		public int getCount() {
-			return cusor.getCount();
+		protected void onCancelled(List<Display> result) {
+			Log.d(TAG, "cancel task");
+			for (Display display : result) {
+
+				cr.delete(MainTable.CONTENT_URI, MainTable._ID + "=?",
+						new String[] { "" + Integer.parseInt(display.getGid()) });
+
+			}
 		}
 
 		@Override
-		public Object getItem(int position) {
-			return null;
+		protected void onCancelled() {
+			Log.d(TAG, "cancel task no result");
 		}
 
 		@Override
-		public long getItemId(int position) {
-			return position;
-		}
+		protected void onPostExecute(List<Display> result) {
+			if (first) {
+				setListShown(true);
+				first = false;
+			}
+			Cursor cusor = cr.query(MainTable.CONTENT_URI, PROJECTION, null, null, null);
+			mAdapter.swapCursor(cusor);
+			mAdapter.notifyDataSetChanged();
 
-		@Override
-		public View getView(int position, View convertView, ViewGroup parent) {
-			return null;
+			//footerTextView.setVisibility(View.VISIBLE);
+			footerBar.setVisibility(View.GONE);
+			hintTextView.setVisibility(View.VISIBLE);
+			int _count = cusor.getCount();
+			hintTextView.setText("已有" + _count + "项,共" + count + "项");
+
+			if (start > end) {
+				// getListView().removeFooterView(footer);
+				footerTextView.setVisibility(View.GONE);
+				footerBar.setVisibility(View.GONE);
+				hintTextView.setText("共" + count + "项");
+
+				Toast.makeText(getActivity(), "没有数据可以加载!", Toast.LENGTH_LONG).show();
+			}
+
 		}
 
 	}
 
-	public class AppListAdapter extends SimpleCursorAdapter {
-		// HashMap<String, WeakReference<Bitmap>> imageCache;
+	public class DisplayCursorAdapter extends SimpleCursorAdapter {
 
-		// Cursor cursor;
+		ImageDownloader downloader = new ImageDownloader();
 
-		// int layout;
-
-		public AppListAdapter(Context context, int layout, Cursor c, String[] from, int[] to, int flags) {
+		public DisplayCursorAdapter(Context context, int layout, Cursor c, String[] from, int[] to, int flags) {
 			super(context, layout, c, from, to, flags);
-			// imageCache = new HashMap<String, WeakReference<Bitmap>>();
-			// this.cursor = c;
-			// this.layout = layout;
 		}
-
-		// class ViewHolder {
-		// TextView textView;
-		// TextView priceTextView;
-		// TextView rebateTextView;
-		// TextView boughtTextView;
-		// ImageView imageView;
-		// }
-
-		// @Override
-		// public View getView(int position, View convertView, ViewGroup parent)
-		// {
-		// Log.d(TAG, "getView "+ position);
-		// if (!mCursor.moveToPosition(position)) {
-		// throw new IllegalStateException("couldn't move cursor to position " +
-		// position);
-		// }
-		//
-		// View view;
-		// if (convertView == null) {
-		// view = super.newView(mContext, mCursor, parent);
-		// } else {
-		// view = convertView;
-		// }
-		// ViewHolder holder = (ViewHolder) view.getTag();
-		// if (holder == null) {
-		// holder = new ViewHolder();
-		// view.setTag(holder);
-		// holder.textView = (TextView) view.findViewById(R.id.text);
-		// holder.imageView = (ImageView) view.findViewById(R.id.icon);
-		// }
-		// Cursor cursor = mCursor;
-		//
-		// String text =
-		// cursor.getString(cursor.getColumnIndexOrThrow(MainTable.COLUMN_NAME_DATA));
-		// holder.textView.setText(text);
-		//
-		// ImageView imageView = holder.imageView;
-		// String small_image_url = cursor.getString(cursor
-		// .getColumnIndexOrThrow(MainTable.COLUMN_NAME_SMALL_IMAGE_URL));
-		// String fileName =
-		// cursor.getString(cursor.getColumnIndexOrThrow(MainTable._ID)) +
-		// ".jpg";
-		// ImageDownloader downloader = new ImageDownloader(fileName);
-		// downloader.download(small_image_url, imageView);
-
-		// WeakReference<Bitmap> bitmapR = imageCache.get(small_image_url);
-
-		// if (bitmapR != null) {
-		// Bitmap bitmap = bitmapR.get();
-		// if (bitmap != null) { // 有缓存
-		// Log.d(TAG, "load Image cache ");
-		// imageView.setImageBitmap(bitmap);
-		// }
-		// } else {
-		// if
-		// (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED))
-		// {
-		// String fileName =
-		// cursor.getString(cursor.getColumnIndexOrThrow(MainTable._ID)) +
-		// ".jpg";
-		// Bitmap bitmap = retrieveCacheImage(fileName);
-		// if (bitmap != null) {
-		// imageView.setImageBitmap(bitmap);
-		// imageCache.put(small_image_url, new WeakReference<Bitmap>(bitmap));
-		// } else {
-		// imageView.setTag(small_image_url);
-		// asyncwork
-		// ImageLoader loader = new ImageLoader(small_image_url, null);
-		// loader.execute(small_image_url);
-		// }
-		// } else {
-		// Log.e(TAG, "Unreadable");
-		// }
-
-		// }
-
-		// return view;
-		// }
-
-		// @Override
-		// public View newView(Context context, Cursor cursor, ViewGroup parent)
-		// {
-		// Log.d(TAG, "newView");
-		// return super.newView(context, cursor, parent);
-		// }
 
 		@Override
 		public void bindView(View view, Context context, Cursor cursor) {
@@ -541,6 +511,7 @@ public class TodayTuanFragment extends SherlockListFragment /*
 			if (v != null) {
 				String text = cursor.getString(cursor.getColumnIndexOrThrow(MainTable.COLUMN_NAME_DATA));
 				((TextView) v).setText(text);
+				
 			}
 
 			v = view.findViewById(R.id.price_text);
@@ -568,128 +539,28 @@ public class TodayTuanFragment extends SherlockListFragment /*
 				String fileName = cursor.getString(cursor.getColumnIndexOrThrow(MainTable._ID)) + ".jpg";
 				String small_image_url = cursor.getString(cursor
 						.getColumnIndexOrThrow(MainTable.COLUMN_NAME_SMALL_IMAGE_URL));
-				ImageDownloader downloader = new ImageDownloader(fileName);
-				downloader.download(small_image_url, imageView);
+
+				downloader.download(small_image_url, imageView, fileName);
 
 			}
 		}
 
-		// class ImageLoader extends AsyncTask<String, Void, Bitmap> {
-		//
-		// String small_image_url;
-		// String fileName;
-		//
-		// public ImageLoader(String small_image_url, String fileName) {
-		// this.small_image_url = small_image_url;
-		// this.fileName = fileName;
-		// }
-		//
-		// @Override
-		// protected Bitmap doInBackground(String... params) {
-		// String url = params[0];
-		// Bitmap bitmap = NetUtils.downloadBitmap(url);
-		// return bitmap;
-		// }
-		//
-		// @Override
-		// protected void onPostExecute(Bitmap result) {
-		// // storeCacheImage(fileName, result);
-		// imageCache.put(small_image_url, new WeakReference<Bitmap>(result));
-		//
-		// ListView view = getListView();
-		// ImageView imageView = (ImageView)
-		// view.findViewWithTag(small_image_url);
-		// if(imageView!=null){
-		// imageView.setImageBitmap(result);
-		// }
-		// }
-		// }
-
-		// Bitmap retrieveCacheImage(String fileName) {
-		// File externalCacheDir = Environment.getExternalStorageDirectory();
-		// File dir = new File(externalCacheDir, "tuan");
-		// if (!dir.exists())
-		// return null;
-		// File file = new File(dir.getAbsoluteFile() + File.separator +
-		// fileName);
-		// if (file.exists()) {
-		// FileInputStream fis = null;
-		// try {
-		// fis = new FileInputStream(file);
-		// Bitmap bitmap = BitmapFactory.decodeStream(fis);
-		// return bitmap;
-		// } catch (FileNotFoundException e) {
-		// e.printStackTrace();
-		// } finally {
-		// if (fis != null)
-		// try {
-		// fis.close();
-		// } catch (IOException e) {
-		// e.printStackTrace();
-		// }
-		// }
-		// }
-		// return null;
-		// }
-		//
-		// boolean storeCacheImage(String fileName, Bitmap bitmap) {
-		// File externalCacheDir = Environment.getExternalStorageDirectory();
-		// if (externalCacheDir == null)
-		// return false;
-		// // Log.d(TAG, externalCacheDir.getAbsolutePath());
-		// File dir = new File(externalCacheDir, "tuan");
-		// if (!dir.exists()) {
-		// dir.mkdirs();
-		// // Log.d(TAG, dir.getAbsolutePath()+"-----"+bool);
-		// }
-		// File file = new File(dir + File.separator + fileName);
-		// // Log.d(TAG, file.getAbsolutePath());
-		// if (!file.exists())
-		// try {
-		// file.createNewFile();
-		// } catch (IOException e) {
-		// e.printStackTrace();
-		// return false;
-		// }
-		//
-		// if (bitmap == null)
-		// return false;
-		//
-		// BufferedOutputStream bos = null;
-		// try {
-		//
-		// bos = new BufferedOutputStream(new FileOutputStream(file));
-		// boolean bool = bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
-		// return bool;
-		// } catch (FileNotFoundException e) {
-		// e.printStackTrace();
-		// } finally {
-		// if (bos != null) {
-		// try {
-		// bos.close();
-		// } catch (IOException e) {
-		// e.printStackTrace();
-		// }
-		// }
-		// }
-		// return false;
-		// }
 	}
 
 	static final int CITY_ID = -1;
 	SimpleCursorAdapter mAdapter;
 
-	AsyncTask<Void, Void, List<Display>> mPopulatingTask;
-
 	int city_id;
-	int start = 0;
+	volatile int start = 0;
 	int end = 0;
 	int count = -1;
+	int cursorCount=0;
 	View footer;
 	TextView footerTextView;
 	private ProgressBar footerBar;
 	TextView hintTextView;
-	
+	Handler handler = new GetCountHandler();
+
 	@Override
 	public void onActivityCreated(Bundle savedInstanceState) {
 		super.onActivityCreated(savedInstanceState);
@@ -706,10 +577,12 @@ public class TodayTuanFragment extends SherlockListFragment /*
 
 			@Override
 			public void onClick(View v) {
-				footerTextView.setVisibility(View.GONE);
-				footerBar.setVisibility(View.VISIBLE);
-				hintTextView.setVisibility(View.INVISIBLE);
-				populate();
+				if (start <= end) {
+				//	footerTextView.setVisibility(View.VISIBLE);
+					footerBar.setVisibility(View.VISIBLE);
+					hintTextView.setVisibility(View.GONE);
+					populate();
+				}
 			}
 		});
 
@@ -717,7 +590,7 @@ public class TodayTuanFragment extends SherlockListFragment /*
 		cr.delete(MainTable.CONTENT_URI, null, null);
 
 		// Create an empty adapter we will use to display the loaded data.
-		mAdapter = new AppListAdapter(getActivity(), R.layout.list_item_icon_text, null,
+		mAdapter = new DisplayCursorAdapter(getActivity(), R.layout.list_item_icon_text, null,
 				new String[] { MainTable.COLUMN_NAME_DATA }, new int[] { R.id.text }, 0);
 		setListAdapter(mAdapter);
 
@@ -733,12 +606,47 @@ public class TodayTuanFragment extends SherlockListFragment /*
 
 		// populate();
 
-		getCount();
+		new Thread(new GetCount()).start();
+
+	}
+
+	class GetCount implements Runnable {
+
+		@Override
+		public void run() {
+			String content = NetUtils.downloadData(city_id, 1, 1);
+			XMLParser parser = new XMLParser();
+			int _count = parser.getCount(content);
+			Message message = new Message();
+			message.arg1 = _count;
+			handler.sendMessage(message);
+		}
+	}
+
+	class GetCountHandler extends Handler {
+
+		@Override
+		public void handleMessage(Message msg) {
+			count = msg.arg1;
+			Log.d(TAG, "count:" + count);
+
+			if (count >= 1) {
+				start = 1;
+				end = (int) Math.ceil(count * 1.0 / Constant.ITEMS);
+				populate();
+			} else {
+				setListShown(true);
+				Toast.makeText(getActivity(), "没有数据可以加载!", Toast.LENGTH_LONG).show();
+			}
+
+		}
+
 	}
 
 	static final String[] PROJECTION = new String[] { MainTable._ID, MainTable.COLUMN_NAME_WAP_URL,
 			MainTable.COLUMN_NAME_SMALL_IMAGE_URL, MainTable.COLUMN_NAME_DATA, MainTable.COLUMN_NAME_BOUGHT,
-			MainTable.COLUMN_NAME_PRICE, MainTable.COLUMN_NAME_REBATE };
+			MainTable.COLUMN_NAME_PRICE, MainTable.COLUMN_NAME_REBATE,MainTable.COLUMN_NAME_DISPLAY_ID };
+	AsyncTask<Void, Void, List<Display>> mPopulatingTask;
 
 	// @Override
 	// public Loader<Cursor> onCreateLoader(int arg0, Bundle arg1) {
@@ -840,121 +748,65 @@ public class TodayTuanFragment extends SherlockListFragment /*
 	// }
 
 	@Override
+	public void onResume() {
+		super.onResume();
+		Log.d(TAG, city_id + " onResume");
+	}
+
+	@Override
+	public void onStart() {
+		super.onStart();
+		Log.d(TAG, city_id + "onStart");
+	}
+
+	@Override
+	public void onPause() {
+		super.onPause();
+		Log.d(TAG, city_id + "onPause");
+	}
+
+	@Override
 	public void onDestroy() {
 		super.onDestroy();
+		Log.d(TAG, city_id + "onDestroy");
+		if (mPopulatingTask != null) {
+			boolean bool = mPopulatingTask.cancel(true);
+			Log.d(TAG, "task status is " + mPopulatingTask.getStatus() + " and cancel task " + bool);
+		}
 
-		// ContentResolver cr = getActivity().getContentResolver();
-		// cr.delete(MainTable.CONTENT_URI, null, null);
+		ContentResolver cr = getActivity().getContentResolver();
+		cr.delete(MainTable.CONTENT_URI, null, null);
 	}
 
 	@Override
 	public void onStop() {
 		super.onStop();
-		if (mPopulatingTask != null) {
-			Log.d(TAG, "task status:" + mPopulatingTask.getStatus());
-			boolean bool = mPopulatingTask.cancel(true);
-			Log.d(TAG, "cancel task " + bool);
-		}
-	}
-
-	/**
-	 * 获取总共的数据
-	 */
-	void getCount() {
-
-		String content = NetUtils.downloadData(city_id, 1, 1);
-		XMLParser parser = new XMLParser();
-		count = parser.getCount(content);
-
-		Log.d(TAG, "count:" + count);
-		if (count >= 1) {
-			start = 1;
-			end = (int) Math.ceil(count * 1.0 / Constant.ITEMS);
-			populate();
-		} else {
-			setListShown(true);
-			Toast.makeText(getActivity(), "没有数据可以加载!", Toast.LENGTH_LONG).show();
-		}
+		Log.d(TAG, city_id + "onStop");
 	}
 
 	/**
 	 * 获取数据
 	 */
 	void populate() {
-		final ContentResolver cr = getActivity().getContentResolver();
-		if (mPopulatingTask != null) {
-			mPopulatingTask.cancel(false);
-		}
-		mPopulatingTask = new AsyncTask<Void, Void, List<Display>>() {
-			@Override
-			protected List<Display> doInBackground(Void... params) {
-				Log.d(TAG, "start:" + start);
-				String content = NetUtils.downloadData(city_id, start, Constant.ITEMS);
 
-				XMLParser parser = new XMLParser();
-				List<Display> lists = parser.parseXML(content);
-				// Log.d(TAG, lists.size() + "");
-				for (Display display : lists) {
-					ContentValues values = new ContentValues();
-					values.put(MainTable._ID, Integer.parseInt(display.getGid()));
-					values.put(MainTable.COLUMN_NAME_DATA, display.getTitle());
-					values.put(MainTable.COLUMN_NAME_SMALL_IMAGE_URL, display.getSmall_image_url());
-					values.put(MainTable.COLUMN_NAME_WAP_URL, display.getWap_url());
-					values.put(MainTable.COLUMN_NAME_BOUGHT, display.getBought());
-					values.put(MainTable.COLUMN_NAME_PRICE, display.getPrice());
-					values.put(MainTable.COLUMN_NAME_REBATE, display.getRebate());
-
-					cr.insert(MainTable.CONTENT_URI, values);
-					// try {
-					// Thread.sleep(250);
-					// } catch (InterruptedException e) {
-					// }
-				}
-				start++;
-				return lists;
-			}
-
-			@Override
-			protected void onCancelled(List<Display> result) {
-				Log.d(TAG, "cancel task");
-				for (Display display : result) {
-
-					cr.delete(MainTable.CONTENT_URI, MainTable._ID + "=?",
-							new String[] { "" + Integer.parseInt(display.getGid()) });
-
-				}
-			}
-
-			@Override
-			protected void onCancelled() {
-				Log.d(TAG, "cancel task no result");
-			}
-
-			@Override
-			protected void onPostExecute(List<Display> result) {
-				setListShown(true);
-				Cursor cusor = cr.query(MainTable.CONTENT_URI, PROJECTION, null, null, null);
-				mAdapter.swapCursor(cusor);
-				mAdapter.notifyDataSetChanged();
-
-				footerTextView.setVisibility(View.VISIBLE);
-				footerBar.setVisibility(View.GONE);
-				hintTextView.setVisibility(View.VISIBLE);
-				int _count = cusor.getCount();
-				hintTextView.setText("已有"+_count+"项,共"+count+"项");
-				
-				if (start > end) {
-					//getListView().removeFooterView(footer);
-					footerTextView.setVisibility(View.GONE);
-					footerBar.setVisibility(View.GONE);
-					hintTextView.setText("共"+count+"项");
-					
-					Toast.makeText(getActivity(), "没有数据可以加载!", Toast.LENGTH_LONG).show();
-				}
-
-			}
-		};
+		mPopulatingTask = new PopulateDataAsyncTask();
 		mPopulatingTask.execute((Void[]) null);
+		// new Thread(new Runnable() {
+		//
+		// @Override
+		// public void run() {
+		// try {
+		// Thread.sleep(2000);
+		// } catch (InterruptedException e) {
+		// // TODO Auto-generated catch block
+		// e.printStackTrace();
+		// }
+		//
+		// boolean bool = mPopulatingTask.cancel(true);
+		// Log.d(TAG, "task status is " + mPopulatingTask.getStatus() +
+		// " and cancel task " + bool);
+		// }
+		// }).start();
 	}
 
 	// void clear() {
