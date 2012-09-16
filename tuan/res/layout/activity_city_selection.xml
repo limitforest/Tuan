@@ -1,0 +1,81 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" 
+    android:paddingLeft="3dp"
+    android:paddingRight="3dp"
+   >
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:text="城市查询" 
+       android:paddingTop="8dp"
+        android:paddingBottom="3dp"
+       />
+
+    <View
+        android:layout_width="20dp"
+        android:layout_height="1dp"
+        android:background="#e0e0e0" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#e0e0e0" />
+
+    <AutoCompleteTextView
+        android:id="@+id/auto1"
+      android:layout_marginTop="3dp"
+      android:layout_marginBottom="3dp"
+       android:textSize="18sp"
+       android:textColor="#fff"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/auto_textview_shape"
+        android:drawableLeft="@android:drawable/ic_search_category_default"
+        android:hint="输入城市中文名或拼音" />
+
+     <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:text="城市列表" 
+        android:paddingTop="8dp"
+        android:paddingBottom="3dp"
+        />
+
+    <View
+        android:layout_width="20dp"
+        android:layout_height="1dp"
+        android:background="#e0e0e0" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#e0e0e0" />
+
+    <LinearLayout
+        android:paddingTop="3dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+
+        <ListView
+            android:id="@+id/listView2"
+            android:scrollbars="none"
+            android:layout_width="match_parent"
+            android:layout_weight="1"
+            android:layout_height="wrap_content" >
+        </ListView>
+
+        <com.example.tuan.view.SideBar
+            android:background="#fff"
+            android:id="@+id/sidebar1"
+            android:layout_width="20dp"
+            android:layout_height="match_parent" >
+        </com.example.tuan.view.SideBar>
+    </LinearLayout>
+
+</LinearLayout>

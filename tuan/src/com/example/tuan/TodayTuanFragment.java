@@ -55,6 +55,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.actionbarsherlock.app.SherlockListActivity;
 import com.actionbarsherlock.app.SherlockListFragment;
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuInflater;
@@ -159,7 +160,7 @@ public class TodayTuanFragment extends SherlockListFragment /*
 		 */
 		@Override
 		public void onCreate(SQLiteDatabase db) {
-			db.execSQL("CREATE TABLE " + MainTable.TABLE_NAME + " (" + MainTable._ID + " INTEGER PRIMARY KEY,"
+			db.execSQL("CREATE TABLE   IF NOT EXISTS " + MainTable.TABLE_NAME + " (" + MainTable._ID + " INTEGER PRIMARY KEY,"
 					 + MainTable.COLUMN_NAME_DISPLAY_ID + " INTEGER ,"
 					+ MainTable.COLUMN_NAME_WAP_URL + " TEXT," + MainTable.COLUMN_NAME_SMALL_IMAGE_URL + " TEXT,"
 					+ MainTable.COLUMN_NAME_BOUGHT + " TEXT," + MainTable.COLUMN_NAME_PRICE + " TEXT,"
@@ -177,13 +178,13 @@ public class TodayTuanFragment extends SherlockListFragment /*
 		 */
 		@Override
 		public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-
+if(oldVersion>newVersion) return;
 			// Logs that the database is being upgraded
 			Log.w(TAG, "Upgrading database from version " + oldVersion + " to " + newVersion
 					+ ", which will destroy all old data");
 
 			// Kills the table and existing data
-			db.execSQL("DROP TABLE IF EXISTS notes");
+			//db.execSQL("DROP TABLE IF EXISTS " + MainTable.TABLE_NAME);
 
 			// Recreates the database with a new version
 			onCreate(db);

@@ -10,6 +10,8 @@ import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
 
 import android.graphics.Bitmap;
@@ -28,8 +30,11 @@ public class NetUtils {
 		Log.d("url", url);
 		HttpGet get = new HttpGet(url);
 		try {
-			HttpResponse response = new DefaultHttpClient().execute(get);
-
+			DefaultHttpClient defaultHttpClient = new DefaultHttpClient();
+			defaultHttpClient.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 5000);//读取超时
+			defaultHttpClient.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);//请求超时
+			HttpResponse response = defaultHttpClient.execute(get);
+			
 			if (response.getStatusLine().getStatusCode() == 200) {
 				result = EntityUtils.toString(response.getEntity(), "utf-8");
 			}

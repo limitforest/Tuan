@@ -11,6 +11,6 @@
     <string name="RMB">￥</string>
     <string name="rebate">折</string>
     <string name="loadMore">加载更多...</string>
-    
+    <string name="title_activity_city_selection">CitySelectionActivity</string>
 
 </resources>
