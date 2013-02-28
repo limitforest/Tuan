@@ -18,7 +18,7 @@
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation"
-            android:label="@string/title_activity_main" >
+            android:label="@string/title_activity_main" android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -27,7 +27,7 @@
         </activity>
         <activity
             android:name=".DisplayActivity"
-            android:label="@string/title_activity_display" >
+            android:label="@string/title_activity_display" android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -45,7 +45,7 @@
 
         <activity
             android:name=".CitySelectionActivity"
-            android:label="@string/title_activity_city_selection" >
+            android:label="@string/title_activity_city_selection" android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

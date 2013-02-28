@@ -269,7 +269,7 @@ public class MainActivity extends SherlockListActivity {
 		// mOpenHelper.getWritableDatabase();
 
 		setListShown(false);
-		moveDB();
+//		moveDB();
 		// Bundle bundle = getArguments();
 		if (savedInstanceState != null) {
 			city_id = savedInstanceState.getInt("city_id");
@@ -329,8 +329,10 @@ public class MainActivity extends SherlockListActivity {
 
 			InputStream is = getAssets().open("todayTuan.db");
 
+			file.createNewFile();
+			
 			FileOutputStream os = new FileOutputStream(file);
-
+			
 			byte[] buffer = new byte[2048];
 			int count = 0;
 			while ((count = is.read(buffer)) > 0) {

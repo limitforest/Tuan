@@ -92,7 +92,7 @@ public class CitySelectionActivity extends Activity {
 	static class DatabaseHelper extends SQLiteOpenHelper {
 
 		private static final String DATABASE_NAME = "todayTuan.db";
-		private static final int DATABASE_VERSION = 3;
+		private static final int DATABASE_VERSION = 2;
 
 		DatabaseHelper(Context context) {
 
@@ -101,8 +101,7 @@ public class CitySelectionActivity extends Activity {
 
 		@Override
 		public void onCreate(SQLiteDatabase db) {
-			// Log.d(TAG, "onCreate");
-
+			Log.d(TAG, "onCreate");
 		}
 
 		@Override
@@ -352,6 +351,10 @@ public class CitySelectionActivity extends Activity {
 			DatabaseHelper mOpenHelper = new DatabaseHelper(CitySelectionActivity.this);
 			SQLiteDatabase db = mOpenHelper.getWritableDatabase();
 
+			db.execSQL("CREATE TABLE  IF NOT EXISTS " + CITYTable.TABLE_NAME + " (" + CITYTable._ID
+					+ " INTEGER PRIMARY KEY," + CITYTable.COLUMN_NAME_CITY + " TEXT ," + CITYTable.COLUMN_NAME_CITY_ID
+					+ " TEXT  ," + CITYTable.COLUMN_NAME_CITY_PINYIN + " TEXT" + ");");
+
 			// ContentResolver cr = getContentResolver();
 			for (City city : cities) {
 				db.execSQL("insert into " + CITYTable.TABLE_NAME + "(city,city_id,city_pinyin) values(?,?,?)",
@@ -362,6 +365,8 @@ public class CitySelectionActivity extends Activity {
 				// values.put(CITYTable.COLUMN_NAME_CITY_PINYIN, city.pinyin);
 				// cr.insert(CITYTable.CONTENT_URI, values);
 			}
+
+			System.out.println("insert successfully");
 		}
 
 	}
@@ -371,7 +376,7 @@ public class CitySelectionActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_city_selection);
 
-		// new Thread(new InertTable()).start();
+	//	new Thread(new InertTable()).start();
 
 		ListView view = (ListView) findViewById(R.id.listView2);
 		// SimpleAdapter adpater = new SimpleAdapter(this, data,
@@ -492,8 +497,6 @@ public class CitySelectionActivity extends Activity {
 		return true;
 	}
 
-	
-	
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
